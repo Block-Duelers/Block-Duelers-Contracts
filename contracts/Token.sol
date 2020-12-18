@@ -9,17 +9,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./Interfaces/IToken.sol";
 
-contract Token is ERC20("Block Duelers", "BDT"), Ownable, AccessControl{
+contract Token is ERC20("Block Duelers", "BDT"), Ownable, AccessControl {
     using SafeMath for uint256;
 
     bytes32 private constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes32 private constant SETTER_ROLE = keccak256("SETTER_ROLE");
 
-    uint public _totalSupply = 50000e18; //50,000
-
-    //event Burn(address indexed from, uint256 value);
-    //event Transfer(address indexed from, address indexed to, uint tokens);
-    //event Mint(address indexed _address, uint _reward);
+    uint256 public _totalSupply = 50000e18; //50,000
 
     mapping(address => uint256) private balances;
 
@@ -33,12 +29,10 @@ contract Token is ERC20("Block Duelers", "BDT"), Ownable, AccessControl{
         _;
     }
 
-    constructor(
-        //address _setter
-    ) public {
+    constructor() public {
         _setupRole(MINTER_ROLE, msg.sender);
         _setupRole(SETTER_ROLE, msg.sender);
-    
+
         _mint(msg.sender, _totalSupply);
     }
 

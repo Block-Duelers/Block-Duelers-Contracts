@@ -28,6 +28,7 @@ contract ERC20StakingPool is ReentrancyGuard, Context, Ownable {
   uint256 private returnRate;
   bool private isFrozen;
   uint256 private frozenTimestamp;
+  address[] private stakers;
 
   uint256 public totalStaked = 0;
 
@@ -70,6 +71,11 @@ contract ERC20StakingPool is ReentrancyGuard, Context, Ownable {
 
   function setReturnRate(uint256 _returnRate) public onlyOwner nonReentrant {
     require(_returnRate > 1e3, "Return rate too small");
+    for (uint64 i=0; i < stakers.length; i++) {
+      if (balanceOf(stakers[i]) > 0 ) {
+        manualUpdate(stakers[i]);
+      }
+    }
     returnRate = _returnRate;
   }
 
@@ -77,7 +83,7 @@ contract ERC20StakingPool is ReentrancyGuard, Context, Ownable {
     return stakedBalance[account];
   }
 
-  function manualUpdate(address account) public nonReentrant {
+  function manualUpdate(address account) public {
     if (account != address(0)) {
       reward[account] = earned(account);
       lastUpdateTime[account] = block.timestamp;
@@ -104,6 +110,10 @@ contract ERC20StakingPool is ReentrancyGuard, Context, Ownable {
     require(!isFrozen, "Contract is frozen");
     uint256 fee = amount.mul(feeRate).div(1e18);
     uint256 stakeAmount = amount.sub(fee);
+    if (stakedBalance[_msgSender()] == 0) {
+      stakers.push(_msgSender());
+    }
+
     stakedBalance[_msgSender()] = stakedBalance[_msgSender()].add(stakeAmount);
     totalStaked = totalStaked.add(stakeAmount);
     STAKE_TOKEN.transferFrom(_msgSender(), address(this), amount);
@@ -116,6 +126,15 @@ contract ERC20StakingPool is ReentrancyGuard, Context, Ownable {
     require(amount <= balanceOf(_msgSender()), "Cannot withdraw more than balance");
     STAKE_TOKEN.transfer(_msgSender(), amount);
     stakedBalance[_msgSender()] = stakedBalance[_msgSender()].sub(amount);
+    if (stakedBalance[_msgSender()] == 0) {
+      for (uint64 i=0; i < stakers.length; i++) {
+        if (stakers[i] == _msgSender()) {
+          stakers[i] = stakers[stakers.length - 1];
+          stakers.pop();
+          break;
+        }
+      }
+    }
     totalStaked = totalStaked.sub(amount);
     emit Unstake(_msgSender(), amount);
   }

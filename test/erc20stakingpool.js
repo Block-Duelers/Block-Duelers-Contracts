@@ -63,5 +63,17 @@ contract("ERC20StakingPool", accounts => {
     assert.equal((await pool.totalStaked.call()).toNumber(), 99);
     assert.equal((await stakeCoin.balanceOf.call(accounts[3])).toNumber(), 11);
   })
+  
+  it("correctly adjust returnRate", async () => {
+    await (stakeCoin.approve(pool.address, 200, { from: accounts[1] }));
+    await pool.stake(100, {from: accounts[1] });
+    await helper.advanceTimeAndBlock(60 * 60 * 24);
+    await pool.setReturnRate("200000000000000000")
+    await helper.advanceTimeAndBlock(60 * 60 * 24);
+    assert.equal((await pool.earned.call(accounts[1])).toNumber(), 30);
+    await pool.withdraw( 50, {from : accounts[1]});
+    await helper.advanceTimeAndBlock(60 * 60 * 24);
+    assert.equal((await pool.earned.call(accounts[1])).toNumber(), 40);
+  })
 
 });

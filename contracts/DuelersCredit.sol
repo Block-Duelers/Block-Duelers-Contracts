@@ -46,6 +46,9 @@ contract DuelersCredit is Context, ReentrancyGuard, IERC20, Ownable {
     uint8 public _decimals;
 
     address[] public minters;
+    
+    mapping (address => bool) public whitelist;
+    bool public isWhitelistEnabled;
 
     /**
      * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
@@ -60,6 +63,7 @@ contract DuelersCredit is Context, ReentrancyGuard, IERC20, Ownable {
         _name = name_;
         _symbol = symbol_;
         _decimals = 18;
+        isWhitelistEnabled = true;
     }
 
     function getMinters() public view returns(address[] memory) {
@@ -89,6 +93,28 @@ contract DuelersCredit is Context, ReentrancyGuard, IERC20, Ownable {
             }
         }
         return false;
+    }
+
+    function getIsWhitelistEnabled() public view returns (bool) {
+        return isWhitelistEnabled;
+    }
+
+    function setIsWhitelistEnabled(bool value) public onlyOwner nonReentrant {
+        isWhitelistEnabled = value;
+    }
+
+    function isWhitelisted(address _addr) public view returns (bool) {
+        return whitelist[_addr];
+    }
+
+    function addToWhitelist(address _addr) public onlyOwner nonReentrant {
+        whitelist[_addr] = true;        
+    }
+
+    function removeFromWhitelist(address _addr) public onlyOwner nonReentrant {
+        if (whitelist[_addr]) {
+            delete whitelist[_addr];            
+        }
     }
 
     /**
@@ -241,6 +267,9 @@ contract DuelersCredit is Context, ReentrancyGuard, IERC20, Ownable {
     function _transfer(address sender, address recipient, uint256 amount) internal virtual {
         require(sender != address(0), "ERC20: transfer from the zero address");
         require(recipient != address(0), "ERC20: transfer to the zero address");
+        if (isWhitelistEnabled) {
+            require(whitelist[sender] || whitelist[recipient], "Token is not transferable");
+        }
 
         _beforeTokenTransfer(sender, recipient, amount);
 

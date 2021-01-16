@@ -18,6 +18,8 @@ contract("ERC20StakingPool", accounts => {
     await stakeCoin.addMinter(accounts[0])
     await stakeCoin.mint(accounts[1], 1000);
     await stakeCoin.mint(accounts[2], 1000);
+    await duelersCredit.addToWhitelist(pool.address);
+    await stakeCoin.addToWhitelist(pool.address);
   })
   it("works", async () => {
     assert.equal((await stakeCoin.balanceOf.call(accounts[1])).toNumber(), 1000);

@@ -48,4 +48,72 @@ contract("DuelersCredit", accounts => {
     const finalBalance = (await duelersCredit.balanceOf.call(accounts[2])).toNumber();
     assert.equal(finalBalance, 100);
   })
+
+  it("the token should be untransferable by default", async () => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+
+    truffleAssert.fails(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.fails(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
+  it("should be able to disable the whitelist", async () => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+    
+    await duelersCredit.setIsWhitelistEnabled(false);
+    truffleAssert.passes(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.passes(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
+  it("should be able to renable the whitelist", async () => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+
+    await duelersCredit.setIsWhitelistEnabled(false);
+    await duelersCredit.setIsWhitelistEnabled(true);
+    truffleAssert.fails(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.fails(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
+  it("should be able to add address to whitelist to receive transfers", async() => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+    
+    await duelersCredit.addToWhitelist(accounts[2]);
+    truffleAssert.passes(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.passes(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
+  it("should be able to add address to whitelist to send transfers", async() => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+    
+    await duelersCredit.addToWhitelist(accounts[1]);
+    truffleAssert.passes(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.passes(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
+  it("should be able to remove address from the whitelist", async() => {
+    const duelersCredit = await DuelersCredit.new("DuelersCredit", "DLC")
+    await duelersCredit.addMinter(accounts[0])
+    await duelersCredit.mint(accounts[1], 100, { from: accounts[0] })
+    
+    await duelersCredit.addToWhitelist(accounts[1]);
+    await duelersCredit.removeFromWhitelist(accounts[1]);
+    truffleAssert.fails(duelersCredit.transfer(accounts[2], 50, { from: accounts[1] }));
+    await duelersCredit.approve(accounts[1], 50, { from: accounts[1] });
+    truffleAssert.fails(duelersCredit.transferFrom(accounts[1], accounts[2], 50, { from: accounts[1] }));
+  })
+
 })

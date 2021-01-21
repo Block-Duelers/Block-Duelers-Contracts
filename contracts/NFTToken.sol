@@ -987,7 +987,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
 }
 
 contract BlockDuelersNFT is ERC1155, Ownable, ReentrancyGuard {
-    constructor() ERC1155("https://app.nftlootbox.com/api/card/{id}") {}
+    constructor() ERC1155("https://blockduelers.com/api/nft/{id}") {}
 
     mapping(address => bool) public isMinter;
 

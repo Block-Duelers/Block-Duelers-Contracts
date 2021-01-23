@@ -581,6 +581,71 @@ library Address {
     }
 }
 
+library SetLib {
+  using SetLib for Set;
+
+  struct Set {
+    mapping(uint256 => IndexData) _dataMap;
+    uint256[] _dataIndex;
+  }
+
+  struct IndexData {
+    uint32 index;
+    uint256 value;
+  }
+
+  function add(Set storage self, uint256 value) internal returns (bool) {
+    require(value != 0, "Unsupported value 0");
+    if (self.contains(value)) {
+      return false;
+    }
+
+    IndexData memory data;
+
+    data.index = uint32(self._dataIndex.length);
+    data.value = value;
+
+    self._dataMap[value] = data;
+    self._dataIndex.push(value);
+
+    return true;
+  }
+
+  function contains(Set storage self, uint256 value) internal view returns (bool) {
+    require(value != 0, "Unsupported value 0");
+    IndexData storage data = self._dataMap[value];
+
+    return data.value == value;
+  }
+
+  function remove(Set storage self, uint256 value) internal {
+    require(value != 0, "Unssuported value 0");
+    IndexData storage data = self._dataMap[value];
+
+    if (data.value != value) {
+        return ;
+    }
+
+    uint256 elementToSwap = self._dataIndex[self._dataIndex.length - 1];
+    self._dataMap[elementToSwap].index = data.index;
+    self._dataIndex[data.index] = elementToSwap;
+
+    delete self._dataMap[value];
+    self._dataIndex.pop();
+  }
+
+  function getAllValues(Set storage self) internal view returns(uint256[] memory) {
+      uint256[] memory result = new uint256[](self._dataIndex.length);
+      for (uint256 i=0; i < self._dataIndex.length; i++) {
+        result[i] = self._dataIndex[i];
+      }
+      return result;
+  }
+
+  function size(Set storage self) internal view returns (uint256) {
+    return self._dataIndex.length;
+  }
+}
 
 // File @openzeppelin/contracts/token/ERC1155/ERC1155.sol@v3.3.0
 
@@ -595,12 +660,15 @@ library Address {
 contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
     using SafeMath for uint256;
     using Address for address;
+    using SetLib for SetLib.Set;
 
     // Mapping from token ID to account balances
     mapping (uint256 => mapping(address => uint256)) private _balances;
 
     // Mapping from account to operator approvals
     mapping (address => mapping(address => bool)) private _operatorApprovals;
+
+    mapping (address => SetLib.Set) private _ids;
 
     // Used as the URI for all token types by relying on ID substitution, e.g. https://token-cdn-domain/{id}.json
     string private _uri;
@@ -733,6 +801,12 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
 
         _balances[id][from] = _balances[id][from].sub(amount, "ERC1155: insufficient balance for transfer");
         _balances[id][to] = _balances[id][to].add(amount);
+        if (amount > 0) {
+            _ids[to].add(id);
+            if (_balances[id][from] == 0) {
+                _ids[from].remove(id);
+            }
+        }
 
         emit TransferSingle(operator, from, to, id, amount);
 
@@ -773,6 +847,13 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
                 "ERC1155: insufficient balance for transfer"
             );
             _balances[id][to] = _balances[id][to].add(amount);
+
+            if (amount > 0) {
+                _ids[to].add(id);
+                if (_balances[id][from] == 0) {
+                    _ids[from].remove(id);
+                }
+            }
         }
 
         emit TransferBatch(operator, from, to, ids, amounts);
@@ -822,6 +903,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
         _beforeTokenTransfer(operator, address(0), account, _asSingletonArray(id), _asSingletonArray(amount), data);
 
         _balances[id][account] = _balances[id][account].add(amount);
+        _ids[account].add(id);
         emit TransferSingle(operator, address(0), account, id, amount);
 
         _doSafeTransferAcceptanceCheck(operator, address(0), account, id, amount, data);
@@ -846,6 +928,7 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
 
         for (uint i = 0; i < ids.length; i++) {
             _balances[ids[i]][to] = amounts[i].add(_balances[ids[i]][to]);
+            _ids[to].add(ids[i]);
         }
 
         emit TransferBatch(operator, address(0), to, ids, amounts);
@@ -872,6 +955,9 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
             amount,
             "ERC1155: burn amount exceeds balance"
         );
+        if (_balances[id][account] == 0) {
+            _ids[account].remove(id);
+        }
 
         emit TransferSingle(operator, account, address(0), id, amount);
     }
@@ -896,11 +982,18 @@ contract ERC1155 is Context, ERC165, IERC1155, IERC1155MetadataURI {
                 amounts[i],
                 "ERC1155: burn amount exceeds balance"
             );
+            if (_balances[ids[i]][account] == 0) {
+                _ids[account].remove(ids[i]);
+            }
         }
 
         emit TransferBatch(operator, account, address(0), ids, amounts);
     }
 
+    function _getAllIds(address account) internal view returns(uint256[] memory) {
+        require(account != address(0), "Invalid 0 address");
+        return _ids[account].getAllValues();
+    }
     /**
      * @dev Hook that is called before any token transfer. This includes minting
      * and burning, as well as batched variants.
@@ -1009,5 +1102,14 @@ contract BlockDuelersNFT is ERC1155, Ownable, ReentrancyGuard {
 
     function burnBatch(uint256[] memory ids, uint256[] memory amounts) public nonReentrant {
         _burnBatch(_msgSender(), ids, amounts);
+    }
+
+    function getFullBalance(address _addr) public view returns(uint256[] memory, uint256[] memory) {
+        uint256[] memory ids = _getAllIds(_addr);
+        uint256[] memory balances = new uint256[](ids.length);
+        for(uint256 i; i < ids.length; i++) {
+            balances[i] = balanceOf(_addr, ids[i]);
+        }
+        return (ids, balances);
     }
 }

@@ -25,7 +25,7 @@ contract NFTSale is Context, Ownable, ReentrancyGuard {
         setBurnRate(_dcBurnRate);
     }
 
-    event Buy(uint256 indexed buyId, address account);
+    event Buy(uint256 indexed buyId, address indexed account);
 
     uint256 public nftDCPrice;
     uint256 public nftBDTPrice;
@@ -62,18 +62,15 @@ contract NFTSale is Context, Ownable, ReentrancyGuard {
     function redeemERC1155(uint256 id, uint256 amount, uint256 saleId, uint8 v, bytes32 r, bytes32 s) public nonReentrant {
       require(sales[saleId] == _msgSender(), "Invalid bet");
       bytes32 hash = keccak256(abi.encode(_msgSender(), id, amount, saleId));
-      bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-      address signer = ecrecover(messageHash, v, r, s);
+      address signer = ecrecover(hash, v, r, s);
       require(signer == authAddress, "Invalid signature");
       sales[saleId] = address(0);
       clearPendingPurchase(_msgSender(), saleId);
       NFT_TOKEN.mint(_msgSender(), id, amount);
     }
-    
     function redeemBulkERC1155(uint256[] calldata id, uint256[] calldata amount, uint256[] calldata saleId, uint8 v, bytes32 r, bytes32 s) public nonReentrant {
       bytes32 hash = keccak256(abi.encode(_msgSender(), id, amount, saleId));
-      bytes32 messageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash));
-      address signer = ecrecover(messageHash, v, r, s);
+      address signer = ecrecover(hash, v, r, s);
       require(signer == authAddress, "Invalid signature");
       require(id.length == amount.length, "Invalid id and amount length");
 

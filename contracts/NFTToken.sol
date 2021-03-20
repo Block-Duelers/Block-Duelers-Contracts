@@ -1088,7 +1088,7 @@ contract BlockDuelersNFT is ERC1155, Ownable, ReentrancyGuard {
         isMinter[minter] = status;
     }
 
-    function mint(address to, uint256 id, uint256 amount) public nonReentrant {
+    function mint(address to, uint256 id, uint256 amount) public nonReentrant { 
       require(isMinter[_msgSender()] == true, "Caller is not a minter");
       _mint(to, id, amount, "");
     }
